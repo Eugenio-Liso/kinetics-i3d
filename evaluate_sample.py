@@ -22,6 +22,7 @@ from __future__ import print_function
 
 import numpy as np
 import tensorflow as tf
+import time
 
 import i3d
 
@@ -106,7 +107,6 @@ def main(unused_argv):
     if eval_type == 'joint':  # Consistency check
         input_rgb_frames = rgb_sample.shape
         input_flow_frames = flow_sample.shape
-
         if input_rgb_frames[1] != input_flow_frames[1]:
             raise ValueError(
                 f"The frames of the input videos are not equal: RGB -> {input_rgb_frames} BUT FLOW -> {input_flow_frames}. Are they from the same video?")
@@ -194,11 +194,13 @@ def main(unused_argv):
             tf.logging.info('Flow checkpoint restored')
             tf.logging.info('Flow data loaded, shape=%s', str(flow_sample.shape))
             feed_dict[flow_input] = flow_sample
-
+        start_time = time.time()
         out_logits, out_predictions = sess.run(
             [model_logits, model_predictions],
             feed_dict=feed_dict)
-
+        end_time = time.time()
+        print("--- Execution time: %s seconds ---" % (end_time - start_time))
+        
         out_logits = out_logits[0]
         out_predictions = out_predictions[0]
         sorted_indices = np.argsort(out_predictions)[::-1]
