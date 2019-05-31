@@ -20,18 +20,23 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-import numpy as np
-import tensorflow as tf
+import os
 import time
 
+import numpy as np
+import tensorflow as tf
+
 import i3d
+from logging_utils import logger_factory as lf
+
+logger = lf.getBasicLogger(os.path.basename(__file__))
 
 _IMAGE_SIZE = 224
 
-_SAMPLE_PATHS = {
-    'rgb': 'data/v_CricketShot_g04_c01_rgb.npy',
-    'flow': 'data/v_CricketShot_g04_c01_flow.npy',
-}
+# _SAMPLE_PATHS = {
+#     'rgb': 'data/v_CricketShot_g04_c01_rgb.npy',
+#     'flow': 'data/v_CricketShot_g04_c01_flow.npy',
+# }
 
 _CHECKPOINT_PATHS = {
     'rgb': 'data/checkpoints/rgb_scratch/model.ckpt',
@@ -51,6 +56,7 @@ tf.flags.DEFINE_boolean('imagenet_pretrained', True, '')
 tf.flags.DEFINE_string('input_video_rgb', '', 'Input video, as .npy, with RGB format')
 tf.flags.DEFINE_string('input_video_flow', '', 'Input video, as .npy, with Flow format')
 
+
 # np.set_printoptions(threshold=np.inf)
 
 def main(unused_argv):
@@ -62,25 +68,25 @@ def main(unused_argv):
     input_video_rgb = FLAGS.input_video_rgb
     input_video_flow = FLAGS.input_video_flow
 
-    print(f'Chosen evaluation type: {eval_type}')
+    logger.info(f'Chosen evaluation type: {eval_type}')
 
     # TODO: Check other input types or better exception handling
     if eval_type == 'joint':  # Joint is the default value, it mixes the flows
-        if input_video_rgb == '' and input_video_flow == '':
-            print("Going to use, as RGB and Flow input, a default test video.")
-            print(_SAMPLE_PATHS)
-        elif input_video_rgb == '' or input_video_flow == '':
+        # if input_video_rgb == '' and input_video_flow == '':
+        #     logger.info("Going to use, as RGB and Flow input, a default test video.")
+        #     logger.info(_SAMPLE_PATHS)
+        if input_video_rgb == '' or input_video_flow == '':
             raise ValueError('Must specify both flows.')
     elif (eval_type == 'rgb' or eval_type == 'rgb600') and input_video_rgb == '':
-        print("Going to use, as RGB input, a default test video.")
-        print(_SAMPLE_PATHS['rgb'])
-        input_video_rgb = _SAMPLE_PATHS['rgb']
+        raise ValueError("Going to use, as RGB input, a default test video.")
+        # logger.info(_SAMPLE_PATHS['rgb'])
+        # input_video_rgb = _SAMPLE_PATHS['rgb']
     elif eval_type == 'flow' and input_video_flow == '':
-        print('You have not specified both input flows. Using default test video.')
-        print(_SAMPLE_PATHS['flow'])
-        input_video_flow = _SAMPLE_PATHS['flow']
+        raise ValueError('You have not specified both input flows. Using default test video.')
+        # logger.info(_SAMPLE_PATHS['flow'])
+        # input_video_flow = _SAMPLE_PATHS['flow']
 
-    print(f"Model inputs: RGB -> {input_video_rgb} | Flow -> {input_video_flow}")
+    logger.info(f"Model inputs: RGB -> {input_video_rgb} | Flow -> {input_video_flow}")
 
     rgb_sample = None
     flow_sample = None
@@ -96,12 +102,12 @@ def main(unused_argv):
 
     if input_video_rgb and input_video_rgb.strip():  # Check string not empty
         rgb_sample = np.load(input_video_rgb)
-        print(rgb_sample)
+        # logger.info(rgb_sample)
         input_video_frames_rgb = rgb_sample.shape[1]
 
     if input_video_flow and input_video_flow.strip():  # Check string not empty
         flow_sample = np.load(input_video_flow)
-        print(flow_sample)
+        # logger.info(flow_sample)
         input_video_frames_flow = flow_sample.shape[1]
 
     if eval_type == 'joint':  # Consistency check
@@ -114,7 +120,7 @@ def main(unused_argv):
             input_video_frames_rgb = input_rgb_frames[1]
             input_video_frames_flow = input_flow_frames[1]
 
-    print(f"Input frames: RGB -> {input_video_frames_rgb} | Flow -> {input_video_frames_flow}")
+    logger.info(f"Input frames: RGB -> {input_video_frames_rgb} | Flow -> {input_video_frames_flow}")
 
     NUM_CLASSES = 400
     if eval_type == 'rgb600':
@@ -199,16 +205,18 @@ def main(unused_argv):
             [model_logits, model_predictions],
             feed_dict=feed_dict)
         end_time = time.time()
-        print("--- Execution time: %s seconds ---" % (end_time - start_time))
-        
+        logger.info("--- Execution time: %s seconds ---" % (end_time - start_time))
+
         out_logits = out_logits[0]
         out_predictions = out_predictions[0]
         sorted_indices = np.argsort(out_predictions)[::-1]
 
-        print('Norm of logits: %f' % np.linalg.norm(out_logits))
-        print('\nTop classes and probabilities')
+        logger.info('Norm of logits: %f' % np.linalg.norm(out_logits))
+        logger.info('Top classes and probabilities')
         for index in sorted_indices[:20]:
-            print(out_predictions[index], out_logits[index], kinetics_classes[index])
+            logger.info("Probability: {}, logit: {}, kinetics_class predicted: {}".format(out_predictions[index],
+                                                                                          out_logits[index],
+                                                                                          kinetics_classes[index]))
 
 
 if __name__ == '__main__':
