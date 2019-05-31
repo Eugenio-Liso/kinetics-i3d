@@ -36,16 +36,27 @@ def load_video_rgb(path, max_frames=0, resize=(224, 224)):
                 break
     finally:
         cap.release()
+    del frames[0]  # Removes first element, to do in preprocessing due to flow having size N - 1
     return np.array(frames) / 255.0  # Normalize in [0,1]
 
 
 def scale(frame):
+    # Analyze if this can help simplify
+    # function
+    # calculateAspectRatioFit(srcWidth, srcHeight, maxWidth, maxHeight)
+    # {
+    #
+    #     var
+    # ratio = Math.min(maxWidth / srcWidth, maxHeight / srcHeight);
+    #
+    # return {width: srcWidth * ratio, height: srcHeight * ratio};
+    # }
     y, x = frame.shape[0:2]
     min_dim = min(y, x)
     scale_factor = min_dim / 256
     max_dim = max(y, x)
 
-    new_max_dim = max_dim / scale_factor
+    new_max_dim = int(max_dim / scale_factor)
 
     if (y > x):
         return cv.resize(frame, (256, new_max_dim), interpolation=cv.INTER_LINEAR)
@@ -73,6 +84,7 @@ def load_video_rgb_custom(path, max_frames=0, resize=(224, 224)):
                 break
     finally:
         cap.release()
+    del frames[0]  # Removes first element, to do in preprocessing due to flow having size N - 1
     return np.array(frames)
 
 
@@ -121,27 +133,27 @@ def load_video_flow_custom(path, resize=(224, 224)):
     return np.array(flow_frames)
 
 
-if __name__ == '__main__':
-    # 'Standard' implementation - RGB
-    numPyArrayOfInputVideo = load_video_rgb(input_video_path)
+# if __name__ == '__main__':
+#     # 'Standard' implementation - RGB
+#     numPyArrayOfInputVideo = load_video_rgb(input_video_path)
+#
+#     model_input = np.expand_dims(numPyArrayOfInputVideo, axis=0)  # Nel primo indice, c'è il batch_size
+#
+#     print(model_input.shape)
+#
+#     # Save .npy array
+#     np.save(save_npy_rgb_path, model_input)
 
-    model_input = np.expand_dims(numPyArrayOfInputVideo, axis=0)  # Nel primo indice, c'è il batch_size
-
-    print(model_input.shape)
-
-    # Save .npy array
-    np.save(save_npy_rgb_path, model_input)
-
-if __name__ == '__main__':
-    # 'Modified' implementation - RGB
-    inputVideoRGB = load_video_rgb(input_video_path)
-
-    model_input = np.expand_dims(numPyArrayOfInputVideo, axis=0)  # Nel primo indice, c'è il batch_size
-
-    print(model_input.shape)
-
-    # Save .npy array
-    np.save(save_npy_rgb_path, model_input)
+# if __name__ == '__main__':
+#     # 'Modified' implementation - RGB
+#     inputVideoRGB = load_video_rgb_custom(input_video_path)
+#
+#     model_input = np.expand_dims(inputVideoRGB, axis=0)  # Nel primo indice, c'è il batch_size
+#
+#     print(model_input.shape)
+#
+#     # Save .npy array
+#     np.save(save_npy_rgb_path, model_input)
 
 
 def animate(video):
@@ -151,7 +163,9 @@ def animate(video):
         display.display(display.Image(data=f.read(), height=300))
 
 
-animate(numPyArrayOfInputVideo)
+# if __name__ == '__main__':
+#     numPyArrayOfInputVideo = np.load(save_npy_rgb_path)
+#     animate(numPyArrayOfInputVideo)
 
 if __name__ == '__main__':
     # Implementation - Flow
