@@ -69,3 +69,5 @@ fabric.properties
 
 *.iml
 *.xml
+*.log
+*.pyc
