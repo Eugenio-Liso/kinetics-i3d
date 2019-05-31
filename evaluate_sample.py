@@ -51,7 +51,7 @@ _LABEL_MAP_PATH_600 = 'data/label_map_600.txt'
 
 FLAGS = tf.flags.FLAGS
 
-tf.flags.DEFINE_string('eval_type', 'joint', 'rgb, rgb600, flow, or joint')
+tf.flags.DEFINE_string('eval_type', '', 'rgb, rgb600, flow, or joint')
 tf.flags.DEFINE_boolean('imagenet_pretrained', True, '')
 tf.flags.DEFINE_string('input_video_rgb', '', 'Input video, as .npy, with RGB format')
 tf.flags.DEFINE_string('input_video_flow', '', 'Input video, as .npy, with Flow format')
@@ -67,6 +67,9 @@ def main(unused_argv):
 
     input_video_rgb = FLAGS.input_video_rgb
     input_video_flow = FLAGS.input_video_flow
+    
+    if eval_type not in ['rgb', 'rgb600', 'flow', 'joint']:
+        raise ValueError('Bad `eval_type`, must be one of rgb, rgb600, flow, joint')
 
     logger.info(f'Chosen evaluation type: {eval_type}')
 
@@ -125,9 +128,6 @@ def main(unused_argv):
     NUM_CLASSES = 400
     if eval_type == 'rgb600':
         NUM_CLASSES = 600
-
-    if eval_type not in ['rgb', 'rgb600', 'flow', 'joint']:
-        raise ValueError('Bad `eval_type`, must be one of rgb, rgb600, flow, joint')
 
     if eval_type == 'rgb600':
         kinetics_classes = [x.strip() for x in open(_LABEL_MAP_PATH_600)]
