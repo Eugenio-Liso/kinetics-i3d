@@ -8,11 +8,13 @@ input_video_flow=$4
 
 if [[ -z ${input_video_rgb_or_flow} && -z ${input_video_flow} ]]; then
     echo "No input path has been set correctly. Exiting..."
-elif [[ -z ${input_video_flow} ]]; then # Only RGB
-    python evaluate_sample.py --imagenet_pretrained ${imagenet_pretrained} --eval_type ${type_prediction} --input_video_rgb "${input_video_rgb_or_flow}" --input_video_flow ""
+elif [[ ${type_prediction} == 'rgb' ]]; then # Only RGB
+    python evaluate_sample.py --imagenet_pretrained "${imagenet_pretrained}" --eval_type "${type_prediction}" --input_video_rgb "${input_video_rgb_or_flow}"
+elif [[ ${type_prediction} == 'flow' ]]; then
+    python evaluate_sample.py --imagenet_pretrained "${imagenet_pretrained}" --eval_type "${type_prediction}" --input_video_flow "${input_video_rgb_or_flow}"
 else
     #RGB + FLOW
-    python evaluate_sample.py --imagenet_pretrained ${imagenet_pretrained} --eval_type ${type_prediction} --input_video_rgb "${input_video_rgb_or_flow}" --input_video_flow "${input_video_flow}"
+    python evaluate_sample.py --imagenet_pretrained "${imagenet_pretrained}" --eval_type "${type_prediction}" --input_video_rgb "${input_video_rgb_or_flow}" --input_video_flow "${input_video_flow}"
 fi
 #python evaluate_sample.py --imagenet_pretrained true --eval_type rgb --input_video_rgb data/customVideoRGB.npy > out/customVideo_rgb_logs.txt
 #python evaluate_sample.py --imagenet_pretrained true --eval_type flow --input_video_flow data/customVideoFlow.npy > out/customVideo_flow_logs.txt

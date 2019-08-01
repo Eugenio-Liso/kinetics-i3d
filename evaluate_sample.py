@@ -186,8 +186,8 @@ def main(unused_argv):
 
     if input_video_frames_rgb is not None:
         totalNumOfFrames = input_video_frames_rgb - 1
-    elif input_flow_frames is not None:
-        totalNumOfFrames = input_flow_frames - 1
+    elif input_video_frames_flow is not None:
+        totalNumOfFrames = input_video_frames_flow - 1
     else:
         raise ValueError("The number of frames is undefined")
 
