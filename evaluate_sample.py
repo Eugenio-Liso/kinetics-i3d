@@ -229,6 +229,13 @@ def main(unused_argv):
 
             if eval_type in ['flow', 'joint']:
                 slicedFlowInput = flow_sample[:, sliceIndex:nextSliceIndex, :, :, :]
+                if maximumFrames:
+                    # Takes the last N frames to compensate
+                    startSliceIdx = ((numOfBatchFrames - 1) - exceedFrames)
+                    endSliceIdx = numOfBatchFrames
+                    slicedFlowInput = np.concatenate((slicedFlowInput,
+                                                      slicedFlowInput[:, startSliceIdx:endSliceIdx, :, :, :]),
+                                                     axis=1)
                 if imagenet_pretrained:
                     flow_saver.restore(sess, _CHECKPOINT_PATHS['flow_imagenet'])
                 else:
