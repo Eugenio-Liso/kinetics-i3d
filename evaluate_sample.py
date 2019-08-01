@@ -67,7 +67,7 @@ def main(unused_argv):
 
     input_video_rgb = FLAGS.input_video_rgb
     input_video_flow = FLAGS.input_video_flow
-    
+
     if eval_type not in ['rgb', 'rgb600', 'flow', 'joint']:
         raise ValueError('Bad `eval_type`, must be one of rgb, rgb600, flow, joint')
 
@@ -134,11 +134,14 @@ def main(unused_argv):
     else:
         kinetics_classes = [x.strip() for x in open(_LABEL_MAP_PATH)]
 
+    sliceIndex = 0
+    numOfBatchFrames = 16  # Can be changed
+
     if eval_type in ['rgb', 'rgb600', 'joint']:
         # RGB input has 3 channels.
         rgb_input = tf.placeholder(
             tf.float32,
-            shape=(1, input_video_frames_rgb, _IMAGE_SIZE, _IMAGE_SIZE, 3))
+            shape=(1, numOfBatchFrames, _IMAGE_SIZE, _IMAGE_SIZE, 3))
 
         with tf.variable_scope('RGB'):
             rgb_model = i3d.InceptionI3d(
@@ -161,7 +164,7 @@ def main(unused_argv):
         # Flow input has only 2 channels.
         flow_input = tf.placeholder(
             tf.float32,
-            shape=(1, input_video_frames_flow, _IMAGE_SIZE, _IMAGE_SIZE, 2))
+            shape=(1, numOfBatchFrames, _IMAGE_SIZE, _IMAGE_SIZE, 2))
         with tf.variable_scope('Flow'):
             flow_model = i3d.InceptionI3d(
                 NUM_CLASSES, spatial_squeeze=True, final_endpoint='Logits')
@@ -181,42 +184,77 @@ def main(unused_argv):
         model_logits = rgb_logits + flow_logits
     model_predictions = tf.nn.softmax(model_logits)
 
-    with tf.Session() as sess:
-        feed_dict = {}
-        if eval_type in ['rgb', 'rgb600', 'joint']:
-            if imagenet_pretrained:
-                rgb_saver.restore(sess, _CHECKPOINT_PATHS['rgb_imagenet'])
-            else:
-                rgb_saver.restore(sess, _CHECKPOINT_PATHS[eval_type])
-            tf.logging.info('RGB checkpoint restored')
-            tf.logging.info('RGB data loaded, shape=%s', str(rgb_sample.shape))
-            feed_dict[rgb_input] = rgb_sample
+    if input_video_frames_rgb is not None:
+        totalNumOfFrames = input_video_frames_rgb - 1
+    elif input_flow_frames is not None:
+        totalNumOfFrames = input_flow_frames - 1
+    else:
+        raise ValueError("The number of frames is undefined")
 
-        if eval_type in ['flow', 'joint']:
-            if imagenet_pretrained:
-                flow_saver.restore(sess, _CHECKPOINT_PATHS['flow_imagenet'])
-            else:
-                flow_saver.restore(sess, _CHECKPOINT_PATHS['flow'])
-            tf.logging.info('Flow checkpoint restored')
-            tf.logging.info('Flow data loaded, shape=%s', str(flow_sample.shape))
-            feed_dict[flow_input] = flow_sample
-        start_time = time.time()
-        out_logits, out_predictions = sess.run(
-            [model_logits, model_predictions],
-            feed_dict=feed_dict)
-        end_time = time.time()
-        logger.info("--- Execution time: %s seconds ---" % (end_time - start_time))
+    maximumFrames = False
+    while sliceIndex < totalNumOfFrames:
+        nextSliceIndex = sliceIndex + numOfBatchFrames
+        print(f"Current sliceIndex: {sliceIndex}-{nextSliceIndex}")
 
-        out_logits = out_logits[0]
-        out_predictions = out_predictions[0]
-        sorted_indices = np.argsort(out_predictions)[::-1]
+        if (nextSliceIndex - 1) > totalNumOfFrames:
+            print("Reached max num of frames")
+            exceedFrames = (nextSliceIndex - 1) - totalNumOfFrames
+            print(f"Exceeding frames: {exceedFrames}")
+            maximumFrames = True
 
-        logger.info('Norm of logits: %f' % np.linalg.norm(out_logits))
-        logger.info('Top classes and probabilities')
-        for index in sorted_indices[:20]:
-            logger.info("Probability: {}, logit: {}, kinetics_class predicted: {}".format(out_predictions[index],
-                                                                                          out_logits[index],
-                                                                                          kinetics_classes[index]))
+        with tf.Session() as sess:
+            # print(rgb_sample[:, 0, :, :, :])
+            # for idx in range(rgb_sample.shape[1]):
+            #     print(rgb_sample[:, idx, :, :, :].shape)
+            #     break
+            feed_dict = {}
+            if eval_type in ['rgb', 'rgb600', 'joint']:
+                slicedRGBInput = rgb_sample[:, sliceIndex:nextSliceIndex, :, :, :]
+                if maximumFrames:
+                    # Takes the last N frames to compensate
+                    startSliceIdx = ((numOfBatchFrames - 1) - exceedFrames)
+                    endSliceIdx = numOfBatchFrames
+                    slicedRGBInput = np.concatenate((slicedRGBInput,
+                                                     slicedRGBInput[:, startSliceIdx:endSliceIdx, :, :, :]),
+                                                    axis=1)
+
+                # print(f"SLICED RGB INPUT: {slicedRGBInput.shape[1]}")
+                if imagenet_pretrained:
+                    rgb_saver.restore(sess, _CHECKPOINT_PATHS['rgb_imagenet'])
+                else:
+                    rgb_saver.restore(sess, _CHECKPOINT_PATHS[eval_type])
+                tf.logging.info('RGB checkpoint restored')
+                tf.logging.info('RGB data loaded, shape=%s', str(slicedRGBInput.shape))
+                feed_dict[rgb_input] = slicedRGBInput
+
+            if eval_type in ['flow', 'joint']:
+                slicedFlowInput = flow_sample[:, sliceIndex:nextSliceIndex, :, :, :]
+                if imagenet_pretrained:
+                    flow_saver.restore(sess, _CHECKPOINT_PATHS['flow_imagenet'])
+                else:
+                    flow_saver.restore(sess, _CHECKPOINT_PATHS['flow'])
+                tf.logging.info('Flow checkpoint restored')
+                tf.logging.info('Flow data loaded, shape=%s', str(slicedFlowInput.shape))
+                feed_dict[flow_input] = slicedFlowInput
+            start_time = time.time()
+            out_logits, out_predictions = sess.run(
+                [model_logits, model_predictions],
+                feed_dict=feed_dict)
+            end_time = time.time()
+            logger.info("--- Execution time: %s seconds ---" % (end_time - start_time))
+
+            out_logits = out_logits[0]
+            out_predictions = out_predictions[0]
+            sorted_indices = np.argsort(out_predictions)[::-1]
+
+            logger.info('Norm of logits: %f' % np.linalg.norm(out_logits))
+            logger.info('Top classes and probabilities')
+            for index in sorted_indices[:20]:
+                logger.info("Probability: {}, logit: {}, kinetics_class predicted: {}".format(out_predictions[index],
+                                                                                              out_logits[index],
+                                                                                              kinetics_classes[index]))
+
+        sliceIndex = nextSliceIndex
 
 
 if __name__ == '__main__':
