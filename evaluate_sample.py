@@ -56,6 +56,7 @@ def main(unused_argv):
     input_rgb_video_folder = FLAGS.input_folder_rgb
     input_flow_video_folder = FLAGS.input_folder_flow
     executions_times_with_video_names = []
+    output_predictions = []
 
     if eval_type not in ['rgb', 'rgb600', 'flow', 'joint']:
         raise ValueError('Bad `eval_type`, must be one of rgb, rgb600, flow, joint')
@@ -89,52 +90,55 @@ def main(unused_argv):
                 if not foundFile:
                     raise ValueError("A file with the same name must exists in the two folders")
                 else:
-                    execution_time_with_video_name = prediction_phase(eval_type,
-                                                                      imagenet_pretrained,
-                                                                      complete_filename_rgb,
-                                                                      complete_filename_flow,
-                                                                      video_name,
-                                                                      flow_input,
-                                                                      flow_saver,
-                                                                      rgb_input,
-                                                                      rgb_saver,
-                                                                      model_logits,
-                                                                      model_predictions,
-                                                                      numOfBatchFrames,
-                                                                      kinetics_classes)
+                    execution_time_with_video_name, output_prediction = prediction_phase(eval_type,
+                                                                                         imagenet_pretrained,
+                                                                                         complete_filename_rgb,
+                                                                                         complete_filename_flow,
+                                                                                         video_name,
+                                                                                         flow_input,
+                                                                                         flow_saver,
+                                                                                         rgb_input,
+                                                                                         rgb_saver,
+                                                                                         model_logits,
+                                                                                         model_predictions,
+                                                                                         numOfBatchFrames,
+                                                                                         kinetics_classes)
             else:
-                execution_time_with_video_name = prediction_phase(eval_type,
-                                                                  imagenet_pretrained,
-                                                                  complete_filename_rgb,
-                                                                  "",
-                                                                  video_name,
-                                                                  flow_input,
-                                                                  flow_saver,
-                                                                  rgb_input,
-                                                                  rgb_saver,
-                                                                  model_logits,
-                                                                  model_predictions,
-                                                                  numOfBatchFrames,
-                                                                  kinetics_classes)
+                execution_time_with_video_name, output_prediction = prediction_phase(eval_type,
+                                                                                     imagenet_pretrained,
+                                                                                     complete_filename_rgb,
+                                                                                     "",
+                                                                                     video_name,
+                                                                                     flow_input,
+                                                                                     flow_saver,
+                                                                                     rgb_input,
+                                                                                     rgb_saver,
+                                                                                     model_logits,
+                                                                                     model_predictions,
+                                                                                     numOfBatchFrames,
+                                                                                     kinetics_classes)
             executions_times_with_video_names.append(execution_time_with_video_name)
+            output_predictions.append(output_prediction)
+
     elif input_flow_video_folder:
         for filename in os.listdir(input_flow_video_folder):
             video_name = filename.split(".")[0]
             complete_filename_flow = os.path.join(input_flow_video_folder, filename)
-            execution_time_with_video_name = prediction_phase(eval_type,
-                                                              imagenet_pretrained,
-                                                              "",
-                                                              complete_filename_flow,
-                                                              video_name,
-                                                              flow_input,
-                                                              flow_saver,
-                                                              rgb_input,
-                                                              rgb_saver,
-                                                              model_logits,
-                                                              model_predictions,
-                                                              numOfBatchFrames,
-                                                              kinetics_classes)
+            execution_time_with_video_name, output_prediction = prediction_phase(eval_type,
+                                                                                 imagenet_pretrained,
+                                                                                 "",
+                                                                                 complete_filename_flow,
+                                                                                 video_name,
+                                                                                 flow_input,
+                                                                                 flow_saver,
+                                                                                 rgb_input,
+                                                                                 rgb_saver,
+                                                                                 model_logits,
+                                                                                 model_predictions,
+                                                                                 numOfBatchFrames,
+                                                                                 kinetics_classes)
 
+            output_predictions.append(output_prediction)
             executions_times_with_video_names.append(execution_time_with_video_name)
     else:
         raise ValueError("Must specify one folder between RGB and flow at least")
@@ -150,10 +154,13 @@ def main(unused_argv):
 
             mean_execution_times.update({video_name: statistics.mean(mean_exec_time)})
 
-    with open('./output_times.json.json', 'w') as f:
+    with open('./output.json', 'w') as f:
+        json.dump(output_predictions, f)
+
+    with open('./output_times.json', 'w') as f:
         json.dump(executions_times_with_video_names, f)
 
-    with open('./output_mean_times.json.json', 'w') as f:
+    with open('./output_mean_times.json', 'w') as f:
         json.dump(mean_execution_times, f)
 
     logger.info("Execution times: {}".format(executions_times_with_video_names))
@@ -279,9 +286,14 @@ def prediction_phase(eval_type,
     exec_times_with_segments = []
     sliceIndex = 0
 
+    output_prediction = {
+        'video': video_name,
+        'clips': []
+    }
+
     while sliceIndex < totalNumOfFrames:
         nextSliceIndex = sliceIndex + numOfBatchFrames
-        print(f"Current sliceIndex: {sliceIndex}-{nextSliceIndex}")
+        print(f"Current sliceIndex: {(sliceIndex + 1)}-{nextSliceIndex}")
 
         if (nextSliceIndex - 1) > totalNumOfFrames:
             print("Reached max num of frames")
@@ -352,12 +364,23 @@ def prediction_phase(eval_type,
                 logger.info("Probability: {}, logit: {}, kinetics_class predicted: {}".format(out_predictions[index],
                                                                                               out_logits[index],
                                                                                               kinetics_classes[index]))
+            prediction_scores = out_predictions[sorted_indices[::]]
+            predicted_class = kinetics_classes[sorted_indices[0]]
+
+            clip_results = {
+                'segment': [(sliceIndex + 1), nextSliceIndex],
+                'label': predicted_class,
+                'scores': [float(prediction) for prediction in prediction_scores]
+            }
+
+            output_prediction['clips'].append(clip_results)
 
         sliceIndex = nextSliceIndex
+
     execution_time_with_video_name = {
         video_name: exec_times_with_segments
     }
-    return execution_time_with_video_name
+    return execution_time_with_video_name, output_prediction
 
 
 if __name__ == '__main__':
