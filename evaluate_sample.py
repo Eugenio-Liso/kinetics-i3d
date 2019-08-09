@@ -23,6 +23,8 @@ import numpy as np
 import tensorflow as tf
 import i3d
 from logging_utils import logger_factory as lf
+import json
+import statistics
 
 logger = lf.getBasicLogger(os.path.basename(__file__))
 _IMAGE_SIZE = 224
@@ -53,7 +55,7 @@ def main(unused_argv):
     imagenet_pretrained = FLAGS.imagenet_pretrained
     input_rgb_video_folder = FLAGS.input_folder_rgb
     input_flow_video_folder = FLAGS.input_folder_flow
-    executions_times_with_video_name = []
+    executions_times_with_video_names = []
 
     if eval_type not in ['rgb', 'rgb600', 'flow', 'joint']:
         raise ValueError('Bad `eval_type`, must be one of rgb, rgb600, flow, joint')
@@ -114,7 +116,7 @@ def main(unused_argv):
                                                                   model_predictions,
                                                                   numOfBatchFrames,
                                                                   kinetics_classes)
-            executions_times_with_video_name.append(execution_time_with_video_name)
+            executions_times_with_video_names.append(execution_time_with_video_name)
     elif input_flow_video_folder:
         for filename in os.listdir(input_flow_video_folder):
             video_name = filename.split(".")[0]
@@ -133,12 +135,87 @@ def main(unused_argv):
                                                               numOfBatchFrames,
                                                               kinetics_classes)
 
-            executions_times_with_video_name.append(execution_time_with_video_name)
+            executions_times_with_video_names.append(execution_time_with_video_name)
     else:
         raise ValueError("Must specify one folder between RGB and flow at least")
-    print(executions_times_with_video_name)
-    # input_video_rgb = FLAGS.input_video_rgb
-    # input_video_flow = FLAGS.input_video_flow
+
+    mean_execution_times = {}
+
+    for prediction in executions_times_with_video_names:
+        for video_name, exec_times_with_segments in prediction.items():
+
+            mean_exec_time = []
+            for segment, exec_time in exec_times_with_segments:
+                mean_exec_time.append(exec_time)
+
+            mean_execution_times.update({video_name: statistics.mean(mean_exec_time)})
+
+    with open('./output_times.json.json', 'w') as f:
+        json.dump(executions_times_with_video_names, f)
+
+    with open('./output_mean_times.json.json', 'w') as f:
+        json.dump(mean_execution_times, f)
+
+    logger.info("Execution times: {}".format(executions_times_with_video_names))
+    logger.info("Mean execution times: {}".format(mean_execution_times))
+
+
+def nn_construction(eval_type, numOfBatchFrames):
+    NUM_CLASSES = 400
+    if eval_type == 'rgb600':
+        NUM_CLASSES = 600
+
+    flow_input = None
+    flow_saver = None
+    rgb_input = None
+    rgb_saver = None
+
+    if eval_type in ['rgb', 'rgb600', 'joint']:
+        # RGB input has 3 channels.
+        rgb_input = tf.placeholder(
+            tf.float32,
+            shape=(1, numOfBatchFrames, _IMAGE_SIZE, _IMAGE_SIZE, 3))
+
+        with tf.variable_scope('RGB'):
+            rgb_model = i3d.InceptionI3d(
+                NUM_CLASSES, spatial_squeeze=True, final_endpoint='Logits')
+            rgb_logits, _ = rgb_model(
+                rgb_input, is_training=False, dropout_keep_prob=1.0)
+
+        rgb_variable_map = {}
+        for variable in tf.global_variables():
+
+            if variable.name.split('/')[0] == 'RGB':
+                if eval_type == 'rgb600':
+                    rgb_variable_map[variable.name.replace(':0', '')[len('RGB/inception_i3d/'):]] = variable
+                else:
+                    rgb_variable_map[variable.name.replace(':0', '')] = variable
+
+        rgb_saver = tf.train.Saver(var_list=rgb_variable_map, reshape=True)
+    if eval_type in ['flow', 'joint']:
+        # Flow input has only 2 channels.
+        flow_input = tf.placeholder(
+            tf.float32,
+            shape=(1, numOfBatchFrames, _IMAGE_SIZE, _IMAGE_SIZE, 2))
+        with tf.variable_scope('Flow'):
+            flow_model = i3d.InceptionI3d(
+                NUM_CLASSES, spatial_squeeze=True, final_endpoint='Logits')
+            flow_logits, _ = flow_model(
+                flow_input, is_training=False, dropout_keep_prob=1.0)
+        flow_variable_map = {}
+        for variable in tf.global_variables():
+            if variable.name.split('/')[0] == 'Flow':
+                flow_variable_map[variable.name.replace(':0', '')] = variable
+        flow_saver = tf.train.Saver(var_list=flow_variable_map, reshape=True)
+    if eval_type == 'rgb' or eval_type == 'rgb600':
+        model_logits = rgb_logits
+    elif eval_type == 'flow':
+        model_logits = flow_logits
+    else:
+        model_logits = rgb_logits + flow_logits
+    model_predictions = tf.nn.softmax(model_logits)
+
+    return flow_input, flow_saver, rgb_input, rgb_saver, model_logits, model_predictions
 
 
 def prediction_phase(eval_type,
@@ -281,64 +358,6 @@ def prediction_phase(eval_type,
         video_name: exec_times_with_segments
     }
     return execution_time_with_video_name
-
-
-def nn_construction(eval_type, numOfBatchFrames):
-    NUM_CLASSES = 400
-    if eval_type == 'rgb600':
-        NUM_CLASSES = 600
-
-    flow_input = None
-    flow_saver = None
-    rgb_input = None
-    rgb_saver = None
-
-    if eval_type in ['rgb', 'rgb600', 'joint']:
-        # RGB input has 3 channels.
-        rgb_input = tf.placeholder(
-            tf.float32,
-            shape=(1, numOfBatchFrames, _IMAGE_SIZE, _IMAGE_SIZE, 3))
-
-        with tf.variable_scope('RGB'):
-            rgb_model = i3d.InceptionI3d(
-                NUM_CLASSES, spatial_squeeze=True, final_endpoint='Logits')
-            rgb_logits, _ = rgb_model(
-                rgb_input, is_training=False, dropout_keep_prob=1.0)
-
-        rgb_variable_map = {}
-        for variable in tf.global_variables():
-
-            if variable.name.split('/')[0] == 'RGB':
-                if eval_type == 'rgb600':
-                    rgb_variable_map[variable.name.replace(':0', '')[len('RGB/inception_i3d/'):]] = variable
-                else:
-                    rgb_variable_map[variable.name.replace(':0', '')] = variable
-
-        rgb_saver = tf.train.Saver(var_list=rgb_variable_map, reshape=True)
-    if eval_type in ['flow', 'joint']:
-        # Flow input has only 2 channels.
-        flow_input = tf.placeholder(
-            tf.float32,
-            shape=(1, numOfBatchFrames, _IMAGE_SIZE, _IMAGE_SIZE, 2))
-        with tf.variable_scope('Flow'):
-            flow_model = i3d.InceptionI3d(
-                NUM_CLASSES, spatial_squeeze=True, final_endpoint='Logits')
-            flow_logits, _ = flow_model(
-                flow_input, is_training=False, dropout_keep_prob=1.0)
-        flow_variable_map = {}
-        for variable in tf.global_variables():
-            if variable.name.split('/')[0] == 'Flow':
-                flow_variable_map[variable.name.replace(':0', '')] = variable
-        flow_saver = tf.train.Saver(var_list=flow_variable_map, reshape=True)
-    if eval_type == 'rgb' or eval_type == 'rgb600':
-        model_logits = rgb_logits
-    elif eval_type == 'flow':
-        model_logits = flow_logits
-    else:
-        model_logits = rgb_logits + flow_logits
-    model_predictions = tf.nn.softmax(model_logits)
-
-    return flow_input, flow_saver, rgb_input, rgb_saver, model_logits, model_predictions
 
 
 if __name__ == '__main__':
