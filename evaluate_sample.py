@@ -55,6 +55,21 @@ def main(unused_argv):
     input_flow_video_folder = FLAGS.input_folder_flow
     executions_times_with_video_name = []
 
+    if eval_type not in ['rgb', 'rgb600', 'flow', 'joint']:
+        raise ValueError('Bad `eval_type`, must be one of rgb, rgb600, flow, joint')
+
+    logger.info(f'Chosen evaluation type: {eval_type}')
+
+    numOfBatchFrames = 16  # Can be changed
+
+    if eval_type == 'rgb600':
+        kinetics_classes = [x.strip() for x in open(_LABEL_MAP_PATH_600)]
+    else:
+        kinetics_classes = [x.strip() for x in open(_LABEL_MAP_PATH)]
+
+    flow_input, flow_saver, rgb_input, rgb_saver, model_logits, model_predictions = nn_construction(
+        eval_type, numOfBatchFrames)
+
     if input_rgb_video_folder:
         for filename_rgb in os.listdir(input_rgb_video_folder):
             video_name = filename_rgb.split(".")[0]
@@ -72,19 +87,52 @@ def main(unused_argv):
                 if not foundFile:
                     raise ValueError("A file with the same name must exists in the two folders")
                 else:
-                    execution_time_with_video_name = prediction_phase(eval_type, imagenet_pretrained,
+                    execution_time_with_video_name = prediction_phase(eval_type,
+                                                                      imagenet_pretrained,
                                                                       complete_filename_rgb,
-                                                                      complete_filename_flow, video_name)
+                                                                      complete_filename_flow,
+                                                                      video_name,
+                                                                      flow_input,
+                                                                      flow_saver,
+                                                                      rgb_input,
+                                                                      rgb_saver,
+                                                                      model_logits,
+                                                                      model_predictions,
+                                                                      numOfBatchFrames,
+                                                                      kinetics_classes)
             else:
-                execution_time_with_video_name = prediction_phase(eval_type, imagenet_pretrained, complete_filename_rgb, "",
-                                                                  video_name)
+                execution_time_with_video_name = prediction_phase(eval_type,
+                                                                  imagenet_pretrained,
+                                                                  complete_filename_rgb,
+                                                                  "",
+                                                                  video_name,
+                                                                  flow_input,
+                                                                  flow_saver,
+                                                                  rgb_input,
+                                                                  rgb_saver,
+                                                                  model_logits,
+                                                                  model_predictions,
+                                                                  numOfBatchFrames,
+                                                                  kinetics_classes)
             executions_times_with_video_name.append(execution_time_with_video_name)
     elif input_flow_video_folder:
-        for filename in os.listdir(input_rgb_video_folder):
+        for filename in os.listdir(input_flow_video_folder):
             video_name = filename.split(".")[0]
-            complete_filename_flow = os.path.join(input_rgb_video_folder, filename)
-            execution_time_with_video_name = prediction_phase(eval_type, imagenet_pretrained, "", complete_filename_flow,
-                                                              video_name)
+            complete_filename_flow = os.path.join(input_flow_video_folder, filename)
+            execution_time_with_video_name = prediction_phase(eval_type,
+                                                              imagenet_pretrained,
+                                                              "",
+                                                              complete_filename_flow,
+                                                              video_name,
+                                                              flow_input,
+                                                              flow_saver,
+                                                              rgb_input,
+                                                              rgb_saver,
+                                                              model_logits,
+                                                              model_predictions,
+                                                              numOfBatchFrames,
+                                                              kinetics_classes)
+
             executions_times_with_video_name.append(execution_time_with_video_name)
     else:
         raise ValueError("Must specify one folder between RGB and flow at least")
@@ -93,11 +141,19 @@ def main(unused_argv):
     # input_video_flow = FLAGS.input_video_flow
 
 
-def prediction_phase(eval_type, imagenet_pretrained, input_video_rgb, input_video_flow, video_name):
-    if eval_type not in ['rgb', 'rgb600', 'flow', 'joint']:
-        raise ValueError('Bad `eval_type`, must be one of rgb, rgb600, flow, joint')
-
-    logger.info(f'Chosen evaluation type: {eval_type}')
+def prediction_phase(eval_type,
+                     imagenet_pretrained,
+                     input_video_rgb,
+                     input_video_flow,
+                     video_name,
+                     flow_input,
+                     flow_saver,
+                     rgb_input,
+                     rgb_saver,
+                     model_logits,
+                     model_predictions,
+                     numOfBatchFrames,
+                     kinetics_classes):
     logger.info(f"Model inputs: RGB -> {input_video_rgb} | Flow -> {input_video_flow}")
 
     rgb_sample = None
@@ -134,65 +190,6 @@ def prediction_phase(eval_type, imagenet_pretrained, input_video_rgb, input_vide
 
     logger.info(f"Input frames: RGB -> {input_video_frames_rgb} | Flow -> {input_video_frames_flow}")
 
-    NUM_CLASSES = 400
-    if eval_type == 'rgb600':
-        NUM_CLASSES = 600
-
-    if eval_type == 'rgb600':
-        kinetics_classes = [x.strip() for x in open(_LABEL_MAP_PATH_600)]
-    else:
-        kinetics_classes = [x.strip() for x in open(_LABEL_MAP_PATH)]
-
-    sliceIndex = 0
-    numOfBatchFrames = 16  # Can be changed
-
-    if eval_type in ['rgb', 'rgb600', 'joint']:
-        # RGB input has 3 channels.
-        rgb_input = tf.placeholder(
-            tf.float32,
-            shape=(1, numOfBatchFrames, _IMAGE_SIZE, _IMAGE_SIZE, 3))
-
-        with tf.variable_scope('RGB'):
-            rgb_model = i3d.InceptionI3d(
-                NUM_CLASSES, spatial_squeeze=True, final_endpoint='Logits')
-            rgb_logits, _ = rgb_model(
-                rgb_input, is_training=False, dropout_keep_prob=1.0)
-
-        rgb_variable_map = {}
-        for variable in tf.global_variables():
-
-            if variable.name.split('/')[0] == 'RGB':
-                if eval_type == 'rgb600':
-                    rgb_variable_map[variable.name.replace(':0', '')[len('RGB/inception_i3d/'):]] = variable
-                else:
-                    rgb_variable_map[variable.name.replace(':0', '')] = variable
-
-        rgb_saver = tf.train.Saver(var_list=rgb_variable_map, reshape=True)
-
-    if eval_type in ['flow', 'joint']:
-        # Flow input has only 2 channels.
-        flow_input = tf.placeholder(
-            tf.float32,
-            shape=(1, numOfBatchFrames, _IMAGE_SIZE, _IMAGE_SIZE, 2))
-        with tf.variable_scope('Flow'):
-            flow_model = i3d.InceptionI3d(
-                NUM_CLASSES, spatial_squeeze=True, final_endpoint='Logits')
-            flow_logits, _ = flow_model(
-                flow_input, is_training=False, dropout_keep_prob=1.0)
-        flow_variable_map = {}
-        for variable in tf.global_variables():
-            if variable.name.split('/')[0] == 'Flow':
-                flow_variable_map[variable.name.replace(':0', '')] = variable
-        flow_saver = tf.train.Saver(var_list=flow_variable_map, reshape=True)
-
-    if eval_type == 'rgb' or eval_type == 'rgb600':
-        model_logits = rgb_logits
-    elif eval_type == 'flow':
-        model_logits = flow_logits
-    else:
-        model_logits = rgb_logits + flow_logits
-    model_predictions = tf.nn.softmax(model_logits)
-
     if input_video_frames_rgb is not None:
         totalNumOfFrames = input_video_frames_rgb - 1
     elif input_video_frames_flow is not None:
@@ -203,6 +200,7 @@ def prediction_phase(eval_type, imagenet_pretrained, input_video_rgb, input_vide
     execution_times_with_video_name = []
     maximumFrames = False
     exec_times_with_segments = []
+    sliceIndex = 0
 
     while sliceIndex < totalNumOfFrames:
         nextSliceIndex = sliceIndex + numOfBatchFrames
@@ -283,6 +281,64 @@ def prediction_phase(eval_type, imagenet_pretrained, input_video_rgb, input_vide
         video_name: exec_times_with_segments
     }
     return execution_time_with_video_name
+
+
+def nn_construction(eval_type, numOfBatchFrames):
+    NUM_CLASSES = 400
+    if eval_type == 'rgb600':
+        NUM_CLASSES = 600
+
+    flow_input = None
+    flow_saver = None
+    rgb_input = None
+    rgb_saver = None
+
+    if eval_type in ['rgb', 'rgb600', 'joint']:
+        # RGB input has 3 channels.
+        rgb_input = tf.placeholder(
+            tf.float32,
+            shape=(1, numOfBatchFrames, _IMAGE_SIZE, _IMAGE_SIZE, 3))
+
+        with tf.variable_scope('RGB'):
+            rgb_model = i3d.InceptionI3d(
+                NUM_CLASSES, spatial_squeeze=True, final_endpoint='Logits')
+            rgb_logits, _ = rgb_model(
+                rgb_input, is_training=False, dropout_keep_prob=1.0)
+
+        rgb_variable_map = {}
+        for variable in tf.global_variables():
+
+            if variable.name.split('/')[0] == 'RGB':
+                if eval_type == 'rgb600':
+                    rgb_variable_map[variable.name.replace(':0', '')[len('RGB/inception_i3d/'):]] = variable
+                else:
+                    rgb_variable_map[variable.name.replace(':0', '')] = variable
+
+        rgb_saver = tf.train.Saver(var_list=rgb_variable_map, reshape=True)
+    if eval_type in ['flow', 'joint']:
+        # Flow input has only 2 channels.
+        flow_input = tf.placeholder(
+            tf.float32,
+            shape=(1, numOfBatchFrames, _IMAGE_SIZE, _IMAGE_SIZE, 2))
+        with tf.variable_scope('Flow'):
+            flow_model = i3d.InceptionI3d(
+                NUM_CLASSES, spatial_squeeze=True, final_endpoint='Logits')
+            flow_logits, _ = flow_model(
+                flow_input, is_training=False, dropout_keep_prob=1.0)
+        flow_variable_map = {}
+        for variable in tf.global_variables():
+            if variable.name.split('/')[0] == 'Flow':
+                flow_variable_map[variable.name.replace(':0', '')] = variable
+        flow_saver = tf.train.Saver(var_list=flow_variable_map, reshape=True)
+    if eval_type == 'rgb' or eval_type == 'rgb600':
+        model_logits = rgb_logits
+    elif eval_type == 'flow':
+        model_logits = flow_logits
+    else:
+        model_logits = rgb_logits + flow_logits
+    model_predictions = tf.nn.softmax(model_logits)
+
+    return flow_input, flow_saver, rgb_input, rgb_saver, model_logits, model_predictions
 
 
 if __name__ == '__main__':

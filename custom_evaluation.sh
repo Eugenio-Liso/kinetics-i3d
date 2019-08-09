@@ -1,17 +1,19 @@
 #!/usr/bin/env bash
 type_prediction=$1
 imagenet_pretrained=$2
-input_folder_rgb=$3
+input_folder_rgb_or_flow=$3
 input_folder_flow=$4
-if [[ -z ${input_folder_rgb} && -z ${input_folder_flow} ]]; then
+if [[ -z ${input_folder_rgb_or_flow} && -z ${input_folder_flow} ]]; then
     echo "No input path has been set correctly. Exiting..."
 elif [[ ${type_prediction} == 'rgb' ]]; then # Only RGB
-    python evaluate_sample.py --imagenet_pretrained "${imagenet_pretrained}" --eval_type "${type_prediction}" --input_folder_rgb "${input_folder_rgb}"
+    python evaluate_sample.py --imagenet_pretrained "${imagenet_pretrained}" --eval_type "${type_prediction}" --input_folder_rgb "${input_folder_rgb_or_flow}"
 elif [[ ${type_prediction} == 'flow' ]]; then
-    python evaluate_sample.py --imagenet_pretrained "${imagenet_pretrained}" --eval_type "${type_prediction}" --input_folder_flow "${input_folder_rgb}"
+    python evaluate_sample.py --imagenet_pretrained "${imagenet_pretrained}" --eval_type "${type_prediction}" --input_folder_flow "${input_folder_rgb_or_flow}"
 elif [[ ${type_prediction} == 'joint' ]]; then
     #RGB + FLOW
-    python evaluate_sample.py --imagenet_pretrained "${imagenet_pretrained}" --eval_type "${type_prediction}" --input_folder_rgb "${input_folder_rgb}" --input_folder_flow "${input_folder_flow}"
+    python evaluate_sample.py --imagenet_pretrained "${imagenet_pretrained}" --eval_type "${type_prediction}" --input_folder_rgb "${input_folder_rgb_or_flow}" --input_folder_flow "${input_folder_flow}"
+elif [[ ${type_prediction} == 'rgb600' ]]; then
+  echo 'rgb600 eval_type not supported because the checkpoint is broken'
 else
   echo "Type of prediction: ${type_prediction} is not supported"
 fi
