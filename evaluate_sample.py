@@ -310,12 +310,13 @@ def prediction_phase(eval_type,
             if eval_type in ['rgb', 'rgb600', 'joint']:
                 slicedRGBInput = rgb_sample[:, sliceIndex:nextSliceIndex, :, :, :]
                 if maximumFrames:
-                    # Takes the last N frames to compensate
-                    startSliceIdx = ((numOfBatchFrames - 1) - exceedFrames)
-                    endSliceIdx = numOfBatchFrames
-                    slicedRGBInput = np.concatenate((slicedRGBInput,
-                                                     slicedRGBInput[:, startSliceIdx:endSliceIdx, :, :, :]),
-                                                    axis=1)
+                    # Moves the 'window' back in time to consider exactly numOfBatchFrames
+                    startSliceIdx = sliceIndex - exceedFrames
+                    endSliceIdx = nextSliceIndex - exceedFrames
+
+                    print(f"Slicing from {startSliceIdx} (inclusive) to {endSliceIdx} (exclusive) instead")
+
+                    slicedRGBInput = rgb_sample[:, startSliceIdx:endSliceIdx, :, :, :]
 
                 # print(f"SLICED RGB INPUT: {slicedRGBInput.shape[1]}")
                 if imagenet_pretrained:
@@ -329,12 +330,14 @@ def prediction_phase(eval_type,
             if eval_type in ['flow', 'joint']:
                 slicedFlowInput = flow_sample[:, sliceIndex:nextSliceIndex, :, :, :]
                 if maximumFrames:
-                    # Takes the last N frames to compensate
-                    startSliceIdx = ((numOfBatchFrames - 1) - exceedFrames)
-                    endSliceIdx = numOfBatchFrames
-                    slicedFlowInput = np.concatenate((slicedFlowInput,
-                                                      slicedFlowInput[:, startSliceIdx:endSliceIdx, :, :, :]),
-                                                     axis=1)
+                    # Moves the 'window' back in time to consider exactly numOfBatchFrames
+                    startSliceIdx = sliceIndex - exceedFrames
+                    endSliceIdx = nextSliceIndex - exceedFrames
+
+                    print(f"Slicing from {startSliceIdx} (inclusive) to {endSliceIdx} (exclusive) instead")
+
+                    slicedFlowInput = flow_sample[:, startSliceIdx:endSliceIdx, :, :, :]
+
                 if imagenet_pretrained:
                     flow_saver.restore(sess, _CHECKPOINT_PATHS['flow_imagenet'])
                 else:
