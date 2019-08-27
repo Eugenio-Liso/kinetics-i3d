@@ -1,3 +1,15 @@
+# How to preprocess videos and run inference
+
+See the preprocessing/preprocess.py file. Change the input variables to take your videos in.
+
+# Run without preprocessing
+
+See `custom_evaluation.sh` to know the script inputs. Sample call:
+
+```bash
+bash custom_evaluation.sh joint true data/rgb data/flow
+```
+
 # I3D models trained on Kinetics
 
 ## Overview

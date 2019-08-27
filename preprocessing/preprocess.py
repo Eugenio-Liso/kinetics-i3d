@@ -2,11 +2,19 @@ import cv2 as cv
 import imageio
 import numpy as np
 from IPython import display
+import os
+import subprocess
 
 # Useful variables
-input_video_path = "/home/eugenio/Documenti/aim2.thesisactionrecognition/projects/action-detection/data/ActivityNet/Crawler/videos/volleyball_short.mp4"
-save_npy_rgb_path = "/home/eugenio/Documenti/aim2.thesisactionrecognition/projects/kinetics-i3d/data/customVideoRGB"
-save_npy_flow_path = "/home/eugenio/Documenti/aim2.thesisactionrecognition/projects/kinetics-i3d/data/customVideoFlow"
+### CHANGE ME
+input_video_path = "/home/eugenio/Documents/lavoro/git/kinetics-i3d/data/videos"
+save_npy_rgb_path = "/home/eugenio/Documents/lavoro/git/kinetics-i3d/data/rgb/"
+save_npy_flow_path = "/home/eugenio/Documents/lavoro/git/kinetics-i3d/data/flow/"
+type_prediction = "joint"
+### CHANGE ME
+
+# Should not be changed
+imagenet_pretrained = "true"
 
 
 # Utilities to open video files using CV2
@@ -168,12 +176,28 @@ def animate(video):
 #     animate(numPyArrayOfInputVideo)
 
 if __name__ == '__main__':
-    # Implementation - Flow
-    inputVideoFlow = load_video_flow_custom(input_video_path)
+    # Implementation - Flow + RGB
+    for input_video in os.listdir(input_video_path):
+        complete_video_path = os.path.join(input_video_path, input_video)
 
-    model_input = np.expand_dims(inputVideoFlow, axis=0)  # Nel primo indice, c'è il batch_size
+        output_flow_npy = os.path.join(save_npy_flow_path, input_video.split(".")[0]) + "_flow"
+        output_rgb_npy = os.path.join(save_npy_rgb_path, input_video.split(".")[0]) + "_rgb"
 
-    print(model_input.shape)
+        print("Output flow npy array: {}.npy".format(output_flow_npy))
+        print("Output rgb npy array: {}.npy".format(output_rgb_npy))
 
-    # Save .npy array
-    np.save(save_npy_flow_path, model_input)
+        inputVideoFlow = load_video_flow_custom(complete_video_path)
+        inputVideoRGB = load_video_rgb_custom(complete_video_path)
+
+        model_input_flow = np.expand_dims(inputVideoFlow, axis=0)  # Nel primo indice, c'è il batch_size
+        model_input_rgb = np.expand_dims(inputVideoRGB, axis=0)  # Nel primo indice, c'è il batch_size
+
+        # Save .npy array
+        np.save(output_flow_npy, model_input_flow)
+        np.save(output_rgb_npy, model_input_rgb)
+
+dirname = os.path.dirname(__file__)
+scriptname = os.path.join(dirname, './custom_evaluation.sh')
+
+# Calling main python script
+subprocess.call(scriptname)
