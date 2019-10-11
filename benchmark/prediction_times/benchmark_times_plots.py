@@ -9,6 +9,8 @@ import json
 from opts_pred_times import parse_opts_benchmark
 from logger_factory import getBasicLogger
 import numpy as np
+import seaborn as sns
+sns.set()
 
 logger = getBasicLogger(os.path.basename(__file__))
 
