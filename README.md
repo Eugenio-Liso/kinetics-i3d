@@ -5,7 +5,7 @@
 conda install tensorflow-gpu=1.13.1
 conda install -c hcc dm-sonnet=1.32
 conda install -c conda-forge tensorflow-probability=0.6.0
-conda install matplotlib=3.1.0
+conda install matplotlib=3.1.0 seaborn=0.9.0
 
 # Per preprocessing
 conda install opencv=3.4.4 -c conda-forge # 4.0.1 does not have DualTVL1OpticalFlow_create
