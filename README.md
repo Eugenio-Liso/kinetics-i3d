@@ -1,6 +1,27 @@
-# How to preprocess videos and run inference
+# This is a forked repo from: https://github.com/deepmind/kinetics-i3d
 
+- Setup environment
+```bash
+conda install tensorflow-gpu=1.13.1
+conda install -c hcc dm-sonnet=1.32
+conda install -c conda-forge tensorflow-probability=0.6.0
+conda install matplotlib=3.1.0
+
+# Per preprocessing
+conda install opencv=3.4.4 -c conda-forge # 4.0.1 does not have DualTVL1OpticalFlow_create
+
+# Additional dependencies that will not be needed
+#conda install imageio=2.5.0 ipython=7.7.0
+```
+
+# How to preprocess videos and run inference
+The main ideas behind the implementation comes from here:       - Merge request da cui sono partito: https://github.com/deepmind/kinetics-i3d/pull/5/commits/f1fa01a332179e82cd655e7cd2f2f0c1c04f0c74
+However, there is also another implementation that comes from a Colab link. By default, the implementation that mostly 
+follows the author advices should be chosen (i.e. the one already used right now).
 See the preprocessing/preprocess.py file. Change the input variables to take your videos in.
+
+For technical reasons, the first frame in RGB videos is removed. The reason is that, why a video could have N 
+frames, the optical flow of it has N-1 frames. So we have to match the array dimensions.
 
 # Run without preprocessing
 
