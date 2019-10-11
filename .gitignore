@@ -71,3 +71,10 @@ fabric.properties
 *.xml
 *.log
 *.pyc
+
+*.json
+*.pth
+
+*.csv
+**/logs/
+*.npy
