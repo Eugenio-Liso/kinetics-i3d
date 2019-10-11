@@ -26,7 +26,8 @@ def crop_center_square(frame):
     return frame[start_y:start_y + min_dim, start_x:start_x + min_dim]
 
 
-# Adattato da https://colab.research.google.com/github/tensorflow/hub/blob/master/examples/colab/action_recognition_with_tf_hub.ipynb#scrollTo=USf0UvkYIlKo
+# "Unofficial" implementation from
+# https://colab.research.google.com/github/tensorflow/hub/blob/master/examples/colab/action_recognition_with_tf_hub.ipynb#scrollTo=USf0UvkYIlKo
 def load_video_rgb(path, max_frames=0, resize=(224, 224)):
     cap = cv.VideoCapture(path)
     frames = []
@@ -72,7 +73,8 @@ def scale(frame):
         return cv.resize(frame, (new_max_dim, 256), interpolation=cv.INTER_LINEAR)
 
 
-# Implementazione più simile a ciò che dicono qui: https://github.com/deepmind/kinetics-i3d#sample-data-and-preprocessing
+### A more official implementation from
+# https://github.com/deepmind/kinetics-i3d#sample-data-and-preprocessing
 def load_video_rgb_custom(path, max_frames=0, resize=(224, 224)):
     cap = cv.VideoCapture(path)
     frames = []
@@ -164,11 +166,11 @@ def load_video_flow_custom(path, resize=(224, 224)):
 #     np.save(save_npy_rgb_path, model_input)
 
 
-def animate(video):
-    converted_video = np.clip(video * 255, 0, 255).astype(np.uint8)
-    imageio.mimsave('./animation.gif', converted_video, fps=30)
-    with open('./animation.gif', 'rb') as f:
-        display.display(display.Image(data=f.read(), height=300))
+# def animate(video):
+#     converted_video = np.clip(video * 255, 0, 255).astype(np.uint8)
+#     imageio.mimsave('./animation.gif', converted_video, fps=30)
+#     with open('./animation.gif', 'rb') as f:
+#         display.display(display.Image(data=f.read(), height=300))
 
 
 # if __name__ == '__main__':
