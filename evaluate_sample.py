@@ -158,10 +158,6 @@ def main(unused_argv):
 
             mean_execution_times.update({video_name: statistics.mean(mean_exec_time)})
 
-    tf.flags.DEFINE_string('output_json', 'output.json', 'Output path of a json with predictions')
-    tf.flags.DEFINE_string('output_times_json', 'output_times.json', 'Output path of a json with prediction times')
-    tf.flags.DEFINE_string('output_mean_times_json', 'output_mean_times.json', 'Output path of a json with mean '
-                                                                               'prediction times')
     output_json = FLAGS.output_json
     output_times_json = FLAGS.output_times_json
     output_mean_times_json = FLAGS.output_mean_times_json
