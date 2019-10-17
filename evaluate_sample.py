@@ -46,6 +46,10 @@ tf.flags.DEFINE_string('eval_type', '', 'rgb, rgb600, flow, or joint')
 tf.flags.DEFINE_boolean('imagenet_pretrained', True, '')
 tf.flags.DEFINE_string('input_folder_rgb', '', 'Input folder of videos, as .npy, with RGB format')
 tf.flags.DEFINE_string('input_folder_flow', '', 'Input folder of videos, as .npy, with Flow format')
+tf.flags.DEFINE_string('output_json', 'output.json', 'Output path of a json with predictions')
+tf.flags.DEFINE_string('output_times_json', 'output_times.json', 'Output path of a json with prediction times')
+tf.flags.DEFINE_string('output_mean_times_json', 'output_mean_times.json', 'Output path of a json with mean '
+                                                                           'prediction times')
 
 
 # np.set_printoptions(threshold=np.inf)
@@ -154,13 +158,21 @@ def main(unused_argv):
 
             mean_execution_times.update({video_name: statistics.mean(mean_exec_time)})
 
-    with open('./output.json', 'w') as f:
+    tf.flags.DEFINE_string('output_json', 'output.json', 'Output path of a json with predictions')
+    tf.flags.DEFINE_string('output_times_json', 'output_times.json', 'Output path of a json with prediction times')
+    tf.flags.DEFINE_string('output_mean_times_json', 'output_mean_times.json', 'Output path of a json with mean '
+                                                                               'prediction times')
+    output_json = FLAGS.output_json
+    output_times_json = FLAGS.output_times_json
+    output_mean_times_json = FLAGS.output_mean_times_json
+
+    with open(output_json, 'w') as f:
         json.dump(output_predictions, f)
 
-    with open('./output_times.json', 'w') as f:
+    with open(output_times_json, 'w') as f:
         json.dump(executions_times_with_video_names, f)
 
-    with open('./output_mean_times.json', 'w') as f:
+    with open(output_mean_times_json, 'w') as f:
         json.dump(mean_execution_times, f)
 
     logger.info("Execution times: {}".format(executions_times_with_video_names))
