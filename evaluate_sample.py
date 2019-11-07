@@ -261,12 +261,12 @@ def prediction_phase(eval_type,
     # Channels input video
 
     if input_video_rgb and input_video_rgb.strip():  # Check string not empty
-        rgb_sample = np.load(input_video_rgb)
+        rgb_sample = np.load(input_video_rgb)['rgb']
         # logger.info(rgb_sample)
         input_video_frames_rgb = rgb_sample.shape[1]
 
     if input_video_flow and input_video_flow.strip():  # Check string not empty
-        flow_sample = np.load(input_video_flow)
+        flow_sample = np.load(input_video_flow)['flow']
         # logger.info(flow_sample)
         input_video_frames_flow = flow_sample.shape[1]
 

@@ -226,8 +226,8 @@ if __name__ == '__main__':
             output_flow_npy = os.path.join(save_npy_flow_path, input_video.split(".")[0])
             output_rgb_npy = os.path.join(save_npy_rgb_path, input_video.split(".")[0])
 
-            print("Output flow npy array: {}.npy".format(output_flow_npy))
-            print("Output rgb npy array: {}.npy".format(output_rgb_npy))
+            print("Output flow npy array: {}".format(output_flow_npy))
+            print("Output rgb npy array: {}".format(output_rgb_npy))
 
             inputVideoFlow = load_video_flow_custom(complete_video_path, use_frames)
             inputVideoRGB = load_video_rgb_custom(complete_video_path, use_frames)
@@ -236,8 +236,8 @@ if __name__ == '__main__':
             model_input_rgb = np.expand_dims(inputVideoRGB, axis=0)  # Nel primo indice, c'è il batch_size
 
             # Save .npy array
-            np.save(output_flow_npy, model_input_flow)
-            np.save(output_rgb_npy, model_input_rgb)
+            np.savez_compressed(output_flow_npy, flow=model_input_flow)
+            np.savez_compressed(output_rgb_npy, rgb=model_input_rgb)
     else:
         for target_class in os.listdir(input_video_or_frames_path):
             target_input_path = os.path.join(input_video_or_frames_path, target_class)
@@ -247,8 +247,8 @@ if __name__ == '__main__':
                 output_flow_npy = os.path.join(save_npy_flow_path, input_video)
                 output_rgb_npy = os.path.join(save_npy_rgb_path, input_video)
 
-                print("Output flow npy array: {}.npy".format(output_flow_npy))
-                print("Output rgb npy array: {}.npy".format(output_rgb_npy))
+                print("Output flow npy array: {}".format(output_flow_npy))
+                print("Output rgb npy array: {}".format(output_rgb_npy))
 
                 inputVideoRGB = load_video_rgb_custom(video_id_path, use_frames)
                 inputVideoFlow = load_video_flow_custom(video_id_path, use_frames)
@@ -257,8 +257,8 @@ if __name__ == '__main__':
                 model_input_rgb = np.expand_dims(inputVideoRGB, axis=0)  # Nel primo indice, c'è il batch_size
 
                 # Save .npy array
-                np.save(output_flow_npy, model_input_flow)
-                np.save(output_rgb_npy, model_input_rgb)
+                np.savez_compressed(output_flow_npy, flow=model_input_flow)
+                np.savez_compressed(output_rgb_npy, rgb=model_input_rgb)
 
     print("Preprocessing completed.")
     # dirname = os.path.dirname(__file__)
